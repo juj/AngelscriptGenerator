@@ -249,6 +249,17 @@ namespace AngelscriptGenerator
                         reason += "(Generic binding doesn't support more than 4 parameters)";
                     }
 
+                    if (f.name == "operator!=")
+                    {
+                        isGoodSymbol = false;
+                        reason += "(operator != is implemented automatically by exposing operator == as opEquals)";
+                    }
+                    if (f.name == "operator<" || f.name == "operator<=" || f.name == "operator>" || f.name == "operator>=")
+                    {
+                        isGoodSymbol = false;
+                        reason += "(operators <, <=, > and >= are implemented by exposing operator opCmp)";
+                    }
+
                     if (!isGoodSymbol)
                         t += "// /*" + reason + "*/ ";
 
@@ -272,7 +283,7 @@ namespace AngelscriptGenerator
                             string funcNameForAngelscript = f.name;
                             funcNameForAngelscript = funcNameForAngelscript.Replace("operator+", "opAdd").Replace("operator-", "opSub").Replace("operator*", "opMul").Replace("operator/", "opDiv")
                                 .Replace("operator+=", "opAddAssign").Replace("operator-=", "opSubAssign").Replace("operator*=", "opMulAssign").Replace("operator/=", "opDivAssign")
-                                .Replace("operator=", "opEquals");
+                                .Replace("operator==", "opEquals");
                             t += "r = engine->RegisterObjectMethod(\"" + className + "\", \"" + f.type.Replace("std::string", "string") + " " + funcNameForAngelscript + "(" + paramListForAngelscriptSignature + ")"
                                 + (f.isConst ? " const" : "") + "\", AS_METHOD_FUNCTION_PR(" + className + ", " + f.name + ", (" + paramList
                                 + ")" + (f.isConst ? " const" : "") + ", " + f.type + "), AS_MEMBER_CALL_CONVENTION); assert(r >= 0);\n";
