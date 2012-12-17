@@ -50,12 +50,15 @@ namespace AngelscriptGenerator
                 "#include <angelscript.h>\n\n" +
 
                 "// If you want to use Angelscript's generic calling convention, #define USE_ANGELSCRIPT_GENERIC_CALL_CONVENTION before including this file.\n" +
+                "// If you use the generic calling convention, you MUST #include <autowrapper/aswrappedcall.h> to bring the wrapper code. If your functions contain a large amount of input parameters,\n" +
+                "// copy the file cpp/aswrappedcall_17.h to your project and include that file instead.\n" +
                 "#if defined(USE_ANGELSCRIPT_GENERIC_CALL_CONVENTION)\n\n" +
                 "#define AS_CALL_CONVENTION asCALL_GENERIC\n" +
                 "#define AS_CTOR_CONVENTION asCALL_GENERIC\n" +
                 "#define AS_MEMBER_CALL_CONVENTION asCALL_GENERIC\n" +
                 "#define AS_FUNCTION WRAP_FN\n" +
                 "#define AS_CONSTRUCTOR(ctorFuncName, className, parameters) WRAP_CON(className, parameters)\n" +
+                "#define AS_DESTRUCTOR(className, dtorFunc) WRAP_DES(className)\n" +
                 "#define AS_METHOD_FUNCTION_PR WRAP_MFN_PR\n\n" +
                 "#else\n\n" +
                 "#define AS_CALL_CONVENTION asCALL_CDECL\n" +
@@ -63,6 +66,7 @@ namespace AngelscriptGenerator
                 "#define AS_MEMBER_CALL_CONVENTION asCALL_THISCALL\n" +
                 "#define AS_FUNCTION asFUNCTION\n" +
                 "#define AS_CONSTRUCTOR(ctorFuncName, className, parameters) asFUNCTION(ctorFuncName)\n" +
+                "#define AS_DESTRUCTOR(className, dtorFunc) asFUNCTION(dtorFunc)\n" +
                 "#define AS_METHOD_FUNCTION_PR asMETHODPR\n\n" +
                 "#endif\n\n";
 
@@ -110,31 +114,36 @@ namespace AngelscriptGenerator
             Symbol s = cs.symbolsByName[className];
             foreach (Symbol f in s.children)
             {
+                if (f.visibilityLevel != VisibilityLevel.Public)
+                    continue; // Only public ctors and dtors are exposed.
+
                 bool isCtor = f.name == className;
+                bool isDtor = (f.name == "~" + className);
+                if (!isCtor && !isDtor)
+                    continue;
+
                 if (isCtor)
                 {
-                    bool first = true;
-                    string paramList = "";
-                    foreach (Parameter p in f.parameters)
-                    {
-                        if (!first)
-                        {
-                            paramList += ",";
-                        }
-                        paramList += p.type;
-                        first = false;
-                    }
+                    string paramList = f.FunctionParameterListWithoutNames();
 
                     string paramListAsIdentifier = paramList.Replace(",", "_").Replace(" ", "_").Replace("&", "ref").Replace("*", "ptr");
                     string args = f.ArgStringWithTypes();
-                    args = args.Substring(1, args.Length-2);
+                    args = args.Substring(1, args.Length - 2);
                     string args2 = f.ArgStringWithoutTypes();
                     args2 = args2.Substring(1, args2.Length - 2);
                     if (args.Length > 0)
                         args += ", ";
+
                     t += "static void " + className + "_ctor_" + paramListAsIdentifier + "(" + args + className + " *self)\n";
                     t += "{\n";
                     t += "\tnew(self) " + className + f.ArgStringWithoutTypes() + ";\n";
+                    t += "}\n\n";
+                }
+                else // Dtor
+                {
+                    t += "static void " + className + "_dtor(void *memory)\n";
+                    t += "{\n";
+                    t += "\t((" + className + "*)memory)->~" + className + "();\n";
                     t += "}\n\n";
                 }
             }
@@ -162,6 +171,7 @@ namespace AngelscriptGenerator
                 if (f.kind == "function")
                 {
                     bool isCtor = f.name == className;
+                    bool isDtor = (f.name == "~" + className);
 
                     if (isGoodSymbol && !knownSymbolNames.Contains(f.type))
                     {
@@ -225,6 +235,10 @@ namespace AngelscriptGenerator
                     {
                         string paramListAsIdentifier = paramList.Replace(",", "_").Replace(" ", "_").Replace("&", "ref").Replace("*", "ptr");
                         t += "r = engine->RegisterObjectBehaviour(\"" + className + "\", asBEHAVE_CONSTRUCT, \"void f(" + paramListForAngelscriptSignature + ")\", AS_CONSTRUCTOR(" + className + "_ctor_" + paramListAsIdentifier + ", " + className + ", (" + paramList + ")), AS_CTOR_CONVENTION); assert(r >= 0);\n";
+                    }
+                    else if (isDtor)
+                    {
+                        t += "r = engine->RegisterObjectBehaviour(\"" + className + "\", asBEHAVE_DESTRUCT, \"void f()\", AS_DESTRUCTOR(" + className + ", " + className + "_dtor), AS_CTOR_CONVENTION); assert(r >= 0);";
                     }
                     else
                     {
