@@ -98,7 +98,30 @@ namespace AngelscriptGenerator
 
         static void RegisterObjectType(string className)
         {
-            string t = "\tr = engine->RegisterObjectType(\"" + className + "\", sizeof(" + className + "), asOBJ_VALUE | asOBJ_POD | asOBJ_APP_CLASS_C); assert(r >= 0);\n";
+            if (!cs.symbolsByName.ContainsKey(className))
+            {
+                Console.WriteLine("Error: Cannot generate bindings for class '" + className + "', XML docs for that class don't exist!");
+                return;
+            }
+
+            Symbol clazz = cs.symbolsByName[className];
+
+            bool hasCtor = clazz.ClassCtor() != null;
+            bool hasDtor = clazz.ClassDtor() != null;
+            bool hasCopyCtor = clazz.ClassCopyCtor() != null;
+            bool hasAssignmentOp = clazz.ClassAssignmentOperator() != null;
+
+            // Register a value type
+            // TODO: Add support to user to choose between these:
+//            string flags = "asOBJ_VALUE | asOBJ_POD";
+            string flags = "asOBJ_REF | asOBJ_NOCOUNT";
+
+            if (hasCtor) flags += " | asOBJ_APP_CLASS_CONSTRUCTOR";
+            if (hasDtor) flags += " | asOBJ_APP_CLASS_DESTRUCTOR";
+            if (hasCopyCtor) flags += " | asOBJ_APP_CLASS_COPY_CONSTRUCTOR";
+            if (hasAssignmentOp) flags += " | asOBJ_APP_CLASS_ASSIGNMENT";
+
+            string t = "\tr = engine->RegisterObjectType(\"" + className + "\", sizeof(" + className + "), " + flags + "); assert(r >= 0);\n";
             tw.Write(t);
         }
 
