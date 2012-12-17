@@ -147,20 +147,23 @@ namespace AngelscriptGenerator
 
                 if (isCtor)
                 {
-                    string paramList = f.FunctionParameterListWithoutNames();
+                    if (!s.IsClassAbstract())
+                    {
+                        string paramList = f.FunctionParameterListWithoutNames();
 
-                    string paramListAsIdentifier = paramList.Replace(",", "_").Replace(" ", "_").Replace("&", "ref").Replace("*", "ptr");
-                    string args = f.ArgStringWithTypes();
-                    args = args.Substring(1, args.Length - 2);
-                    string args2 = f.ArgStringWithoutTypes();
-                    args2 = args2.Substring(1, args2.Length - 2);
-                    if (args.Length > 0)
-                        args += ", ";
+                        string paramListAsIdentifier = paramList.Replace(",", "_").Replace(" ", "_").Replace("&", "ref").Replace("*", "ptr");
+                        string args = f.ArgStringWithTypes();
+                        args = args.Substring(1, args.Length - 2);
+                        string args2 = f.ArgStringWithoutTypes();
+                        args2 = args2.Substring(1, args2.Length - 2);
+                        if (args.Length > 0)
+                            args += ", ";
 
-                    t += "static void " + className + "_ctor_" + paramListAsIdentifier + "(" + args + className + " *self)\n";
-                    t += "{\n";
-                    t += "\tnew(self) " + className + f.ArgStringWithoutTypes() + ";\n";
-                    t += "}\n\n";
+                        t += "static void " + className + "_ctor_" + paramListAsIdentifier + "(" + args + className + " *self)\n";
+                        t += "{\n";
+                        t += "\tnew(self) " + className + f.ArgStringWithoutTypes() + ";\n";
+                        t += "}\n\n";
+                    }
                 }
                 else // Dtor
                 {
@@ -267,8 +270,11 @@ namespace AngelscriptGenerator
 
                     if (isCtor)
                     {
-                        string paramListAsIdentifier = paramList.Replace(",", "_").Replace(" ", "_").Replace("&", "ref").Replace("*", "ptr");
-                        t += "r = engine->RegisterObjectBehaviour(\"" + className + "\", asBEHAVE_CONSTRUCT, \"void f(" + paramListForAngelscriptSignature + ")\", AS_CONSTRUCTOR(" + className + "_ctor_" + paramListAsIdentifier + ", " + className + ", (" + paramList + ")), AS_CTOR_CONVENTION); assert(r >= 0);\n";
+                        if (!s.IsClassAbstract())
+                        {
+                            string paramListAsIdentifier = paramList.Replace(",", "_").Replace(" ", "_").Replace("&", "ref").Replace("*", "ptr");
+                            t += "r = engine->RegisterObjectBehaviour(\"" + className + "\", asBEHAVE_CONSTRUCT, \"void f(" + paramListForAngelscriptSignature + ")\", AS_CONSTRUCTOR(" + className + "_ctor_" + paramListAsIdentifier + ", " + className + ", (" + paramList + ")), AS_CTOR_CONVENTION); assert(r >= 0);\n";
+                        }
                     }
                     else if (isDtor)
                     {
