@@ -8,7 +8,7 @@ using System.Linq;
 using System.Text;
 using DocGenerator;
 
-namespace EmbindGenerator
+namespace AngelscriptGenerator
 {
     class Program
     {
