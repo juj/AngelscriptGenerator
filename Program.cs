@@ -47,7 +47,25 @@ namespace EmbindGenerator
 
             string t =
                 "#pragma once\n" +
-                "#include <angelscript.h>\n\n";
+                "#include <angelscript.h>\n\n" +
+
+                "// If you want to use Angelscript's generic calling convention, #define USE_ANGELSCRIPT_GENERIC_CALL_CONVENTION before including this file.\n" +
+                "#if defined(USE_ANGELSCRIPT_GENERIC_CALL_CONVENTION)\n" +
+                "#define AS_CALL_CONVENTION asCALL_GENERIC\n" +
+                "#define AS_CTOR_CONVENTION asCALL_GENERIC\n" +
+                "#define AS_MEMBER_CALL_CONVENTION asCALL_GENERIC\n" +
+                "#define AS_FUNCTION WRAP_FN\n" +
+                "#define AS_CONSTRUCTOR(ctorFuncName, className, parameters) WRAP_CON(className, parameters)\n" +
+                "#define AS_METHOD_FUNCTION_PR WRAP_MFN_PR\n" +
+                "#else\n" +
+                "#define AS_CALL_CONVENTION asCALL_CDECL\n" +
+                "#define AS_CTOR_CONVENTION asCALL_CDECL_OBJLAST\n" +
+                "#define AS_MEMBER_CALL_CONVENTION asCALL_THISCALL\n" +
+                "#define AS_FUNCTION asFUNCTION\n" +
+                "#define AS_CONSTRUCTOR(ctorFuncName, className, parameters) asFUNCTION(ctorFuncName)\n" +
+                "#define AS_METHOD_FUNCTION_PR asMETHODPR\n" +
+                "#endif\n";
+
             tw.Write(t);
 
             for (int i = 1; i < args.Length; ++i)
