@@ -83,6 +83,8 @@ namespace AngelscriptGenerator
             for (int i = 1; i < args.Length; ++i)
                 RegisterObjectType(args[i]);
 
+            tw.Write("\n\n");
+
             for (int i = 1; i < args.Length; ++i)
                 GenerateBindingsFile(args[i], knownSymbolNames);
 
@@ -308,7 +310,7 @@ namespace AngelscriptGenerator
                     t += "r = engine->RegisterObjectProperty(\"" + f.parent.name + "\", \"" + f.type + " " + f.name + "\", asOFFSET(" + f.parent.name + ", " + f.name + ")); assert(r >= 0);\n";
                 }
             }
-            t += "\t;\n";
+            t += "\n\n\n";
 
             tw.Write(t);
         }
