@@ -98,6 +98,59 @@ namespace AngelscriptGenerator
 
         static TextWriter tw = new StreamWriter("angelscript_symbols_cpp.h");
 
+        static string AngelscriptFlags(List<string> attributes)
+        {
+            foreach (string s in attributes)
+            {
+                Match m = Regex.Match(s, "ascript\\s*:\\s*(.*)");
+                if (m.Success)
+                    return m.Groups[1].Value.Trim();
+            }
+            return "";
+        }
+
+        static bool IsReferenceType(Symbol clazz)
+        {
+            string flags = AngelscriptFlags(clazz.attributes);
+            if (flags.Contains("asOBJ_REF"))
+                return true;
+            if (flags.Contains("asOBJ_VALUE"))
+                return false;
+
+            // If class has pure virtual functions, it must be a reference type.
+            if (clazz.IsClassAbstract())
+                return true;
+
+            List<Symbol> ctors = clazz.AllClassCtors();
+            bool hasPublicCtors = false;
+            foreach (Symbol s in ctors)
+                if (s.visibilityLevel == VisibilityLevel.Public)
+                {
+                    hasPublicCtors = true;
+                    break;
+                }
+
+            // If all class ctors are non-public, it must be a reference type.
+            if (ctors.Count > 0 && !hasPublicCtors)
+                return true;
+
+            // If class copy-ctor is non-public, it must be a reference type. (well, strictly, not, but it's so silly if not, so take it as a rule)
+            Symbol copyCtor = clazz.ClassCopyCtor();
+            if (copyCtor != null && copyCtor.visibilityLevel != VisibilityLevel.Public)
+                return true;
+
+            // If class assignment operator is non-public, it must be a reference type.
+            Symbol assignmentOp = clazz.FindChildByName("operator=");
+            if (assignmentOp != null && assignmentOp.visibilityLevel != VisibilityLevel.Public)
+                return true;
+
+            Symbol dtor = clazz.ClassDtor();
+            if (dtor != null && dtor.visibilityLevel != VisibilityLevel.Public) // Non-public ctor? -> reference type
+                return true;
+
+            return false;
+        }
+
         static void RegisterObjectType(string className)
         {
             if (!cs.symbolsByName.ContainsKey(className))
@@ -115,9 +168,15 @@ namespace AngelscriptGenerator
 
             // Register a value type
             // TODO: Add support to user to choose between these:
-//            string flags = "asOBJ_VALUE | asOBJ_POD";
-            string flags = "asOBJ_REF | asOBJ_NOCOUNT";
-
+            string flags = AngelscriptFlags(clazz.attributes);
+            if (flags.Length == 0)
+            {
+                if (IsReferenceType(clazz))
+                    flags = "asOBJ_REF | asOBJ_NOCOUNT"; ///\todo When to set asOBJ_NOCOUNT?
+                else
+                    flags = "asOBJ_VALUE | asOBJ_POD"; ///\todo When to set asOBJ_NOCOUNT?
+            }
+            
             if (hasCtor) flags += " | asOBJ_APP_CLASS_CONSTRUCTOR";
             if (hasDtor) flags += " | asOBJ_APP_CLASS_DESTRUCTOR";
             if (hasCopyCtor) flags += " | asOBJ_APP_CLASS_COPY_CONSTRUCTOR";
@@ -161,10 +220,20 @@ namespace AngelscriptGenerator
                         if (args.Length > 0)
                             args += ", ";
 
-                        t += "static void " + className + "_ctor_" + paramListAsIdentifier + "(" + args + className + " *self)\n";
-                        t += "{\n";
-                        t += "\tnew(self) " + className + f.ArgStringWithoutTypes() + ";\n";
-                        t += "}\n\n";
+                        if (IsReferenceType(s)) // This is a ref type - implement factory functions.
+                        {
+                            t += "static " + className + " *" + className + "_Factory_" + paramListAsIdentifier + "(" + args + className + " *self)\n";
+                            t += "{\n";
+                            t += "\treturn new " + className + f.ArgStringWithoutTypes() + ";\n";
+                            t += "}\n\n";
+                        }
+                        else // This is a value type - implement placement new ctor functions.
+                        {
+                            t += "static void " + className + "_ctor_" + paramListAsIdentifier + "(" + args + className + " *self)\n";
+                            t += "{\n";
+                            t += "\tnew(self) " + className + f.ArgStringWithoutTypes() + ";\n";
+                            t += "}\n\n";
+                        }
                     }
                 }
                 else // Dtor
@@ -265,6 +334,11 @@ namespace AngelscriptGenerator
                         reason += "(operators <, <=, > and >= are implemented by exposing operator opCmp)";
                     }
 
+                    if (f.name.StartsWith("operator "))
+                    {
+                        isGoodSymbol = false;
+                        reason += "(Implicit conversion operators are not supported)";
+                    }
                     if (!isGoodSymbol)
                         t += "// /*" + reason + "*/ ";
 
@@ -275,7 +349,11 @@ namespace AngelscriptGenerator
                         if (!s.IsClassAbstract())
                         {
                             string paramListAsIdentifier = paramList.Replace(",", "_").Replace(" ", "_").Replace("&", "ref").Replace("*", "ptr");
-                            t += "r = engine->RegisterObjectBehaviour(\"" + className + "\", asBEHAVE_CONSTRUCT, \"void f(" + paramListForAngelscriptSignature + ")\", AS_CONSTRUCTOR(" + className + "_ctor_" + paramListAsIdentifier + ", " + className + ", (" + paramList + ")), AS_CTOR_CONVENTION); assert(r >= 0);\n";
+
+                            if (IsReferenceType(s)) // Reference types have factories.
+                                t += "r = engine->RegisterObjectBehaviour(\"" + className + "\", asBEHAVE_FACTORY, \"" + className + "@ f(" + paramListForAngelscriptSignature + ")\", AS_FUNCTION(" + className + "_ctor_" + paramListAsIdentifier + ", " + className + ", (" + paramList + ")), AS_CALL_CONVENTION); assert(r >= 0);";
+                            else // Value types have constructors.
+                                t += "r = engine->RegisterObjectBehaviour(\"" + className + "\", asBEHAVE_CONSTRUCT, \"void f(" + paramListForAngelscriptSignature + ")\", AS_CONSTRUCTOR(" + className + "_ctor_" + paramListAsIdentifier + ", " + className + ", (" + paramList + ")), AS_CTOR_CONVENTION); assert(r >= 0);\n";
                         }
                     }
                     else if (isDtor)
