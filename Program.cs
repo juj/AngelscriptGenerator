@@ -455,7 +455,7 @@ namespace AngelscriptGenerator
                             funcNameForAngelscript = funcNameForAngelscript.Replace("operator+=", "opAddAssign").Replace("operator-=", "opSubAssign").Replace("operator*=", "opMulAssign").Replace("operator/=", "opDivAssign")
                                 .Replace("%=", "opModAssign").Replace("&=", "opAndAssign").Replace("|=", "opOrAssign").Replace("^=", "opXorAssign").Replace("<<=", "opShlAssign").Replace(">>=", "opShrAssign")
                                 .Replace("operator==", "opEquals").Replace("operator+", "opAdd").Replace("operator-", "opSub").Replace("operator*", "opMul").Replace("operator/", "opDiv").Replace("operator-", "opNeg")
-                                .Replace("operator~", "opCom");
+                                .Replace("operator~", "opCom").Replace("operator=", "opAssign");
 
                             t += "r = engine->RegisterObjectMethod(\"" + className + "\", \"" + functionReturnType + " " + funcNameForAngelscript + "(" + paramListForAngelscriptSignature + ")"
                                 + (f.isConst ? " const" : "") + "\", AS_METHOD_FUNCTION_PR(" + className + ", " + f.name + ", (" + paramList
