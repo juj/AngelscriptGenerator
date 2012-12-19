@@ -329,6 +329,19 @@ namespace AngelscriptGenerator
             type = type.Replace("signed long", "int32");
             type = type.Replace("long", "int32");
 
+            type = type.Replace("u8", "uint8");
+            type = type.Replace("u16", "uint16");
+            type = type.Replace("u32", "uint32");
+            type = type.Replace("u64", "uint64");
+            type = type.Replace("s8", "int8");
+            type = type.Replace("s16", "int16");
+            type = type.Replace("s32", "int32");
+            type = type.Replace("s64", "int64");
+
+            type = type.Replace("uint32", "uint");
+            type = type.Replace("sint32", "int");
+            type = type.Replace("int32", "int");
+
             string basicType = BasicType(type);
             if (type.EndsWith("*") && !type.EndsWith("**"))
             {
@@ -410,7 +423,9 @@ namespace AngelscriptGenerator
                         paramList += p.type;
                         string paramTypeForAngelscript = ToAngelscriptKnownType(p.type);
                         if (!IsSymbolKnownToAngelscript(paramTypeForAngelscript, knownSymbolNames))
+                        {
                             paramTypeForAngelscript = ToAngelscriptKnownType(ResolveTypedefs(p.type));
+                        }
                         paramListForAngelscriptSignature += paramTypeForAngelscript;
                         if (paramTypeForAngelscript.EndsWith("&"))
                         {
