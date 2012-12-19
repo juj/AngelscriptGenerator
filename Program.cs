@@ -109,6 +109,9 @@ namespace AngelscriptGenerator
 
         static bool IsReferenceType(Symbol clazz)
         {
+            if (clazz.kind != "class" && clazz.kind != "struct")
+                return false;
+
             string flags = AngelscriptFlags(clazz.attributes);
             if (flags.Contains("asOBJ_REF"))
                 return true;
@@ -197,7 +200,22 @@ namespace AngelscriptGenerator
                 if (hasAssignmentOp) flags += " | asOBJ_APP_CLASS_ASSIGNMENT";
             }
 
-            string t = "\tr = engine->RegisterObjectType(\"" + className + "\", sizeof(" + className + "), " + flags + "); assert(r >= 0);\n";
+            string t;
+            if (clazz.kind == "typedef")
+            {
+                string realtype = clazz.TypedefRealType();
+                Match m = Regex.Match(realtype, ".*shared_ptr<(.*)>.*");
+                if (m.Success)
+                {
+                    t = "\tRegisterSharedPointer<" + m.Groups[1].Value + ">(\"" + className + "\", \"" + m.Groups[1].Value + "\", engine);\n";
+                }
+                else
+                    t = "\t // Unknown typedef " + className + " pointing to " + realtype;
+            }
+            else
+            {
+                t = "\tr = engine->RegisterObjectType(\"" + className + "\", sizeof(" + className + "), " + flags + "); assert(r >= 0);\n";
+            }
             tw.Write(t);
         }
 
@@ -273,6 +291,15 @@ namespace AngelscriptGenerator
             return type;
         }
 
+        static string BasicType(string symbol)
+        {
+            Match m = Regex.Match(symbol, "\\s*(const\\s+|)(.*)\\s+(&|\\*|@)\\s*");
+            if (m.Success)
+                return m.Groups[2].Value;
+
+            return symbol;
+        }
+
         static string ToAngelscriptKnownType(string type)
         {
             type = type.Replace("std::string", "string");
@@ -291,6 +318,17 @@ namespace AngelscriptGenerator
             type = type.Replace("signed long", "int32");
             type = type.Replace("long", "int32");
 
+            string basicType = BasicType(type);
+            if (type.EndsWith("*") && !type.EndsWith("**"))
+            {
+                if (cs.symbolsByName.ContainsKey(basicType))
+                {
+                    Symbol clazz = cs.symbolsByName[basicType];
+                    if (IsReferenceType(clazz))
+                        type = type.Substring(0, type.Length - 1) + "@";
+                }
+            }
+
             return type;
         }
 
@@ -298,12 +336,11 @@ namespace AngelscriptGenerator
         {
             if (knownSymbolNames.Contains(symbol))
                 return true;
-            Match m = Regex.Match(symbol, "\\s*(const\\s+|)(.*)\\s+&\\s*");
-            if (m.Success)
-            {
-                if (knownSymbolNames.Contains(m.Groups[2].Value))
-                    return true;
-            }
+            if (symbol.EndsWith("**"))
+                return false;
+            string basicType = BasicType(symbol);
+            if (knownSymbolNames.Contains(basicType) && !symbol.Contains("*")) // TODO: r = engine->RegisterObjectBehaviour("float2", asBEHAVE_CONSTRUCT, "void f(const float *)", AS_CONSTRUCTOR(float2_ctor_const_float_ptr, float2, (const float *)), AS_CTOR_CONVENTION); assert(r >= 0);
+                return true;
 
             return false;
         }
@@ -432,7 +469,7 @@ namespace AngelscriptGenerator
                             string paramListAsIdentifier = paramList.Replace(",", "_").Replace(" ", "_").Replace("&", "ref").Replace("*", "ptr");
 
                             if (IsReferenceType(s)) // Reference types have factories.
-                                t += "r = engine->RegisterObjectBehaviour(\"" + className + "\", asBEHAVE_FACTORY, \"" + className + "@ f(" + paramListForAngelscriptSignature + ")\", AS_FUNCTION(" + className + "_ctor_" + paramListAsIdentifier + ", " + className + ", (" + paramList + ")), AS_CALL_CONVENTION); assert(r >= 0);";
+                                t += "// /* TODO */ r = engine->RegisterObjectBehaviour(\"" + className + "\", asBEHAVE_FACTORY, \"" + className + "@ f(" + paramListForAngelscriptSignature + ")\", AS_FUNCTION(" + className + "_Factory_" + paramListAsIdentifier + ", " + className + ", (" + paramList + ")), AS_CALL_CONVENTION); assert(r >= 0);";
                             else // Value types have constructors.
                                 t += "r = engine->RegisterObjectBehaviour(\"" + className + "\", asBEHAVE_CONSTRUCT, \"void f(" + paramListForAngelscriptSignature + ")\", AS_CONSTRUCTOR(" + className + "_ctor_" + paramListAsIdentifier + ", " + className + ", (" + paramList + ")), AS_CTOR_CONVENTION); assert(r >= 0);\n";
                         }
