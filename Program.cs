@@ -294,6 +294,20 @@ namespace AngelscriptGenerator
             return type;
         }
 
+        static bool IsSymbolKnownToAngelscript(string symbol, List<string> knownSymbolNames)
+        {
+            if (knownSymbolNames.Contains(symbol))
+                return true;
+            /*
+            Match m = Regex.Match(symbol, "\\s*const\\s+(.*)\\s+&\\s*");
+            if (m.Success)
+            {
+                if (knownSymbolNames.Contains(m.Groups[1].Value))
+                    return true;
+            }*/
+            return false;
+        }
+
         static void GenerateBindingsFile(string className, List<string> knownSymbolNames)
         {
             if (!cs.symbolsByName.ContainsKey(className))
@@ -319,17 +333,16 @@ namespace AngelscriptGenerator
 
                     string functionReturnType = ToAngelscriptKnownType(f.type);
 
-                    if (isGoodSymbol && !knownSymbolNames.Contains(functionReturnType))
+                    if (isGoodSymbol && !IsSymbolKnownToAngelscript(functionReturnType, knownSymbolNames))
                     {
                         // Try to resolve the typedef manually.
                         functionReturnType = ToAngelscriptKnownType(ResolveTypedefs(f.type));
-                        if (isGoodSymbol && !knownSymbolNames.Contains(functionReturnType))
+                        if (!IsSymbolKnownToAngelscript(functionReturnType, knownSymbolNames))
                         {
                             isGoodSymbol = false;
                             reason += "(" + f.type + "(==" + functionReturnType + ") is not known to angelscript)";
                         }
                     }
-
                     string targetFunctionName = f.name; // The JS side name with which this function will be exposed.
                     bool hasOverloads = (functionOverloads.Count > 1);
 
@@ -346,7 +359,7 @@ namespace AngelscriptGenerator
                         }
                         paramList += p.type;
                         string paramTypeForAngelscript = ToAngelscriptKnownType(p.type);
-                        if (!knownSymbolNames.Contains(paramTypeForAngelscript))
+                        if (!IsSymbolKnownToAngelscript(paramTypeForAngelscript, knownSymbolNames))
                             paramTypeForAngelscript = ToAngelscriptKnownType(ResolveTypedefs(p.type));
                         paramListForAngelscriptSignature += paramTypeForAngelscript;
                         if (paramTypeForAngelscript.EndsWith("&"))
@@ -362,7 +375,7 @@ namespace AngelscriptGenerator
                             }
                         }
 
-                        if (isGoodSymbol && !knownSymbolNames.Contains(paramTypeForAngelscript))
+                        if (isGoodSymbol && !IsSymbolKnownToAngelscript(paramTypeForAngelscript, knownSymbolNames))
                         {
                             isGoodSymbol = false;
                             reason += "(" + p.type + " (==" + paramTypeForAngelscript + ") is not known to angelscript)";
@@ -428,7 +441,7 @@ namespace AngelscriptGenerator
                                 .Replace("operator+=", "opAddAssign").Replace("operator-=", "opSubAssign").Replace("operator*=", "opMulAssign").Replace("operator/=", "opDivAssign")
                                 .Replace("operator==", "opEquals");
 
-                            t += "r = engine->RegisterObjectMethod(\"" + className + "\", \"" + ResolveTypedefs(f.type.Replace("std::string", "string")) + " " + funcNameForAngelscript + "(" + paramListForAngelscriptSignature + ")"
+                            t += "r = engine->RegisterObjectMethod(\"" + className + "\", \"" + functionReturnType + " " + funcNameForAngelscript + "(" + paramListForAngelscriptSignature + ")"
                                 + (f.isConst ? " const" : "") + "\", AS_METHOD_FUNCTION_PR(" + className + ", " + f.name + ", (" + paramList
                                 + ")" + (f.isConst ? " const" : "") + ", " + f.type + "), AS_MEMBER_CALL_CONVENTION); assert(r >= 0);\n";
                         }
