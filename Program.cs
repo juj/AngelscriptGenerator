@@ -38,7 +38,12 @@ namespace AngelscriptGenerator
             knownSymbolNames.Add("double");
             knownSymbolNames.Add("string");
             for (int i = 1; i < args.Length; ++i)
+            {
                 knownSymbolNames.Add(args[i]);
+                string scopeToIdentifier = args[i].Replace("::", "_");
+                if (scopeToIdentifier != args[i])
+                    knownSymbolNames.Add(scopeToIdentifier);
+            }
 
             string t =
                 "#pragma once\n" +
@@ -212,6 +217,12 @@ namespace AngelscriptGenerator
                 else
                     t = "\t // Unknown typedef " + className + " pointing to " + realtype;
             }
+            else if (clazz.kind == "enum")
+            {
+                t = "\tr = engine->RegisterEnum(\"" + ToAngelscriptKnownType(clazz.FullQualifiedSymbolName()) + "\"); assert(r >= 0);\n";
+                foreach (EnumValue e in clazz.enumValues)
+                    t += "\tr = engine->RegisterEnumValue(\"" + ToAngelscriptKnownType(clazz.FullQualifiedSymbolName()) + "\", \"" + e.name + "\", " + e.Value() + "); assert(r >= 0);\n";
+            }
             else
             {
                 t = "\tr = engine->RegisterObjectType(\"" + className + "\", sizeof(" + className + "), " + flags + "); assert(r >= 0);\n";
@@ -328,6 +339,8 @@ namespace AngelscriptGenerator
                         type = type.Substring(0, type.Length - 1) + "@";
                 }
             }
+
+            type = type.Replace("::", "_");
 
             return type;
         }
