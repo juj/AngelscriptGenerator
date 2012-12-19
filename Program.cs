@@ -298,13 +298,13 @@ namespace AngelscriptGenerator
         {
             if (knownSymbolNames.Contains(symbol))
                 return true;
-            /*
-            Match m = Regex.Match(symbol, "\\s*const\\s+(.*)\\s+&\\s*");
+            Match m = Regex.Match(symbol, "\\s*(const\\s+|)(.*)\\s+&\\s*");
             if (m.Success)
             {
-                if (knownSymbolNames.Contains(m.Groups[1].Value))
+                if (knownSymbolNames.Contains(m.Groups[2].Value))
                     return true;
-            }*/
+            }
+
             return false;
         }
 
@@ -437,9 +437,8 @@ namespace AngelscriptGenerator
                         else
                         {
                             string funcNameForAngelscript = f.name;
-                            funcNameForAngelscript = funcNameForAngelscript.Replace("operator+", "opAdd").Replace("operator-", "opSub").Replace("operator*", "opMul").Replace("operator/", "opDiv")
-                                .Replace("operator+=", "opAddAssign").Replace("operator-=", "opSubAssign").Replace("operator*=", "opMulAssign").Replace("operator/=", "opDivAssign")
-                                .Replace("operator==", "opEquals");
+                            funcNameForAngelscript = funcNameForAngelscript.Replace("operator+=", "opAddAssign").Replace("operator-=", "opSubAssign").Replace("operator*=", "opMulAssign").Replace("operator/=", "opDivAssign")
+                                .Replace("operator==", "opEquals").Replace("operator+", "opAdd").Replace("operator-", "opSub").Replace("operator*", "opMul").Replace("operator/", "opDiv");
 
                             t += "r = engine->RegisterObjectMethod(\"" + className + "\", \"" + functionReturnType + " " + funcNameForAngelscript + "(" + paramListForAngelscriptSignature + ")"
                                 + (f.isConst ? " const" : "") + "\", AS_METHOD_FUNCTION_PR(" + className + ", " + f.name + ", (" + paramList
