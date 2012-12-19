@@ -57,6 +57,7 @@ namespace AngelscriptGenerator
                 "#define AS_CTOR_CONVENTION asCALL_GENERIC\n" +
                 "#define AS_MEMBER_CALL_CONVENTION asCALL_GENERIC\n" +
                 "#define AS_FUNCTION WRAP_FN\n" +
+                "#define AS_FUNCTION_PR WRAP_FN_PR\n" +
                 "#define AS_CONSTRUCTOR(ctorFuncName, className, parameters) WRAP_CON(className, parameters)\n" +
                 "#define AS_DESTRUCTOR(className, dtorFunc) WRAP_DES(className)\n" +
                 "#define AS_METHOD_FUNCTION_PR WRAP_MFN_PR\n\n" +
@@ -65,6 +66,7 @@ namespace AngelscriptGenerator
                 "#define AS_CTOR_CONVENTION asCALL_CDECL_OBJLAST\n" +
                 "#define AS_MEMBER_CALL_CONVENTION asCALL_THISCALL\n" +
                 "#define AS_FUNCTION asFUNCTION\n" +
+                "#define AS_FUNCTION_PR asFUNCTIONPR\n" +
                 "#define AS_CONSTRUCTOR(ctorFuncName, className, parameters) asFUNCTION(ctorFuncName)\n" +
                 "#define AS_DESTRUCTOR(className, dtorFunc) asFUNCTION(dtorFunc)\n" +
                 "#define AS_METHOD_FUNCTION_PR asMETHODPR\n\n" +
@@ -147,6 +149,16 @@ namespace AngelscriptGenerator
             Symbol dtor = clazz.ClassDtor();
             if (dtor != null && dtor.visibilityLevel != VisibilityLevel.Public) // Non-public ctor? -> reference type
                 return true;
+
+            // Qt-specific: If class has any signals or slots, it is a reference type.
+            foreach(Symbol s in clazz.children)
+                if (s.kind == "slot" || s.kind == "signal")
+                    return true;
+            
+            // HEURISTIC, might not always apply: If class has any virtual functions, it is a reference type
+            foreach (Symbol s in clazz.children)
+                if (s.virtualness != Virtualness.None)
+                    return true;
 
             return false;
         }
@@ -272,7 +284,7 @@ namespace AngelscriptGenerator
                 List<Symbol> functionOverloads = f.FetchFunctionOverloads(knownSymbolNames);
                 bool isGoodSymbol = !f.attributes.Contains("noascript"); // If true, this symbol is exposed. If false, this symbol is not enabled for JS.
                 string reason = f.attributes.Contains("noascript") ? "(ignoring since [noascript] specified)" : "";
-                if (f.kind == "function")
+                if (f.kind == "function" || f.kind == "slot")
                 {
                     bool isCtor = f.name == className;
                     bool isDtor = (f.name == "~" + className);
