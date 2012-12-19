@@ -409,6 +409,12 @@ namespace AngelscriptGenerator
                         reason += "(operators -- and ++ are not yet supported)";
                     }
 
+                    if (f.name == "operator[]")
+                    {
+                        isGoodSymbol = false;
+                        reason += "(operator [] is not supported)";
+                    }
+
                     if (f.name.StartsWith("operator "))
                     {
                         isGoodSymbol = false;
