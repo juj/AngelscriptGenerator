@@ -180,6 +180,9 @@ namespace AngelscriptGenerator
 
             if (!isReferenceType)
             {
+                if (hasCtor || hasDtor || hasCopyCtor || hasAssignmentOp)
+                    flags += " | asOBJ_APP_CLASS";
+
                 if (hasCtor) flags += " | asOBJ_APP_CLASS_CONSTRUCTOR";
                 if (hasDtor) flags += " | asOBJ_APP_CLASS_DESTRUCTOR";
                 if (hasCopyCtor) flags += " | asOBJ_APP_CLASS_COPY_CONSTRUCTOR";
