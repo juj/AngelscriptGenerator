@@ -403,6 +403,12 @@ namespace AngelscriptGenerator
                         reason += "(operators <, <=, > and >= are implemented by exposing operator opCmp)";
                     }
 
+                    if (f.name == "operator--" || f.name == "operator++")
+                    {
+                        isGoodSymbol = false;
+                        reason += "(operators -- and ++ are not yet supported)";
+                    }
+
                     if (f.name.StartsWith("operator "))
                     {
                         isGoodSymbol = false;
@@ -437,8 +443,13 @@ namespace AngelscriptGenerator
                         else
                         {
                             string funcNameForAngelscript = f.name;
+
+                            ///\todo Properly detect preincrement and postincrement operator++, operator--
+
                             funcNameForAngelscript = funcNameForAngelscript.Replace("operator+=", "opAddAssign").Replace("operator-=", "opSubAssign").Replace("operator*=", "opMulAssign").Replace("operator/=", "opDivAssign")
-                                .Replace("operator==", "opEquals").Replace("operator+", "opAdd").Replace("operator-", "opSub").Replace("operator*", "opMul").Replace("operator/", "opDiv");
+                                .Replace("%=", "opModAssign").Replace("&=", "opAndAssign").Replace("|=", "opOrAssign").Replace("^=", "opXorAssign").Replace("<<=", "opShlAssign").Replace(">>=", "opShrAssign")
+                                .Replace("operator==", "opEquals").Replace("operator+", "opAdd").Replace("operator-", "opSub").Replace("operator*", "opMul").Replace("operator/", "opDiv").Replace("operator-", "opNeg")
+                                .Replace("operator~", "opCom");
 
                             t += "r = engine->RegisterObjectMethod(\"" + className + "\", \"" + functionReturnType + " " + funcNameForAngelscript + "(" + paramListForAngelscriptSignature + ")"
                                 + (f.isConst ? " const" : "") + "\", AS_METHOD_FUNCTION_PR(" + className + ", " + f.name + ", (" + paramList
