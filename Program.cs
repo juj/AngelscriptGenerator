@@ -165,22 +165,26 @@ namespace AngelscriptGenerator
             bool hasDtor = clazz.ClassDtor() != null;
             bool hasCopyCtor = clazz.ClassCopyCtor() != null;
             bool hasAssignmentOp = clazz.ClassAssignmentOperator() != null;
+            bool isReferenceType = IsReferenceType(clazz);
 
             // Register a value type
             // TODO: Add support to user to choose between these:
             string flags = AngelscriptFlags(clazz.attributes);
             if (flags.Length == 0)
             {
-                if (IsReferenceType(clazz))
+                if (isReferenceType)
                     flags = "asOBJ_REF | asOBJ_NOCOUNT"; ///\todo When to set asOBJ_NOCOUNT?
                 else
                     flags = "asOBJ_VALUE | asOBJ_POD"; ///\todo When to set asOBJ_NOCOUNT?
             }
-            
-            if (hasCtor) flags += " | asOBJ_APP_CLASS_CONSTRUCTOR";
-            if (hasDtor) flags += " | asOBJ_APP_CLASS_DESTRUCTOR";
-            if (hasCopyCtor) flags += " | asOBJ_APP_CLASS_COPY_CONSTRUCTOR";
-            if (hasAssignmentOp) flags += " | asOBJ_APP_CLASS_ASSIGNMENT";
+
+            if (!isReferenceType)
+            {
+                if (hasCtor) flags += " | asOBJ_APP_CLASS_CONSTRUCTOR";
+                if (hasDtor) flags += " | asOBJ_APP_CLASS_DESTRUCTOR";
+                if (hasCopyCtor) flags += " | asOBJ_APP_CLASS_COPY_CONSTRUCTOR";
+                if (hasAssignmentOp) flags += " | asOBJ_APP_CLASS_ASSIGNMENT";
+            }
 
             string t = "\tr = engine->RegisterObjectType(\"" + className + "\", sizeof(" + className + "), " + flags + "); assert(r >= 0);\n";
             tw.Write(t);
