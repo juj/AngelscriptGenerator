@@ -365,7 +365,8 @@ namespace AngelscriptGenerator
                     }
                     else if (isDtor)
                     {
-                        t += "r = engine->RegisterObjectBehaviour(\"" + className + "\", asBEHAVE_DESTRUCT, \"void f()\", AS_DESTRUCTOR(" + className + ", " + className + "_dtor), AS_CTOR_CONVENTION); assert(r >= 0);";
+                        if (!IsReferenceType(s)) // Only value types have destructors.
+                            t += "r = engine->RegisterObjectBehaviour(\"" + className + "\", asBEHAVE_DESTRUCT, \"void f()\", AS_DESTRUCTOR(" + className + ", " + className + "_dtor), AS_CTOR_CONVENTION); assert(r >= 0);";
                     }
                     else
                     {
