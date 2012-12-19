@@ -26,22 +26,17 @@ namespace AngelscriptGenerator
             knownSymbolNames.Add(""); // Typeless 'types', e.g. return value of ctor is parsed to an empty string.
             knownSymbolNames.Add("void");
             knownSymbolNames.Add("bool");
-            knownSymbolNames.Add("char");
-            knownSymbolNames.Add("signed char");
-            knownSymbolNames.Add("unsigned char");
-            knownSymbolNames.Add("short");
-            knownSymbolNames.Add("signed short");
-            knownSymbolNames.Add("unsigned short");
+            knownSymbolNames.Add("int8");
+            knownSymbolNames.Add("int16");
             knownSymbolNames.Add("int");
-            knownSymbolNames.Add("signed int");
-            knownSymbolNames.Add("unsigned int");
-            knownSymbolNames.Add("long");
-            knownSymbolNames.Add("signed long");
-            knownSymbolNames.Add("unsigned long");
+            knownSymbolNames.Add("int64");
+            knownSymbolNames.Add("uint8");
+            knownSymbolNames.Add("uint16");
+            knownSymbolNames.Add("uint");
+            knownSymbolNames.Add("uint64");
             knownSymbolNames.Add("float");
             knownSymbolNames.Add("double");
-            knownSymbolNames.Add("unsigned int");
-            knownSymbolNames.Add("std::string");
+            knownSymbolNames.Add("string");
             for (int i = 1; i < args.Length; ++i)
                 knownSymbolNames.Add(args[i]);
 
@@ -81,7 +76,8 @@ namespace AngelscriptGenerator
                  "{\n" +
                  "\tint r;\n\n";
             tw.Write(t);
-
+//            Symbol ss = cs.symbolsByName["entity_id_t"];
+//            Console.WriteLine("ss: " + ss.kind + " = " + ss.TypedefRealType());
             for (int i = 1; i < args.Length; ++i)
                 RegisterObjectType(args[i]);
 
@@ -266,6 +262,38 @@ namespace AngelscriptGenerator
             tw.Write(t);
         }
 
+        static string ResolveTypedefs(string type)
+        {
+            if (cs.symbolsByName.ContainsKey(type))
+            {
+                Symbol s = cs.symbolsByName[type];
+                if (s.kind == "typedef")
+                    return s.TypedefRealType();
+            }
+            return type;
+        }
+
+        static string ToAngelscriptKnownType(string type)
+        {
+            type = type.Replace("std::string", "string");
+            type = type.Replace("unsigned int", "uint");
+            type = type.Replace("signed int", "int");
+            type = type.Replace("unsigned char", "uint8");
+            type = type.Replace("signed char", "int8");
+            type = type.Replace("char", "int8");
+            type = type.Replace("unsigned short", "uint16");
+            type = type.Replace("signed short", "int16");
+            type = type.Replace("short", "int16");
+            type = type.Replace("unsigned long long", "uint64");
+            type = type.Replace("signed long long", "int64");
+            type = type.Replace("long long", "int64");
+            type = type.Replace("unsigned long", "uint32");
+            type = type.Replace("signed long", "int32");
+            type = type.Replace("long", "int32");
+
+            return type;
+        }
+
         static void GenerateBindingsFile(string className, List<string> knownSymbolNames)
         {
             if (!cs.symbolsByName.ContainsKey(className))
@@ -289,16 +317,23 @@ namespace AngelscriptGenerator
                     bool isCtor = f.name == className;
                     bool isDtor = (f.name == "~" + className);
 
-                    if (isGoodSymbol && !knownSymbolNames.Contains(f.type))
+                    string functionReturnType = ToAngelscriptKnownType(f.type);
+
+                    if (isGoodSymbol && !knownSymbolNames.Contains(functionReturnType))
                     {
-                        isGoodSymbol = false;
-                        reason += "(" + f.type + " is not known to angelscript)";
+                        // Try to resolve the typedef manually.
+                        functionReturnType = ToAngelscriptKnownType(ResolveTypedefs(f.type));
+                        if (isGoodSymbol && !knownSymbolNames.Contains(functionReturnType))
+                        {
+                            isGoodSymbol = false;
+                            reason += "(" + f.type + "(==" + functionReturnType + ") is not known to angelscript)";
+                        }
                     }
 
                     string targetFunctionName = f.name; // The JS side name with which this function will be exposed.
                     bool hasOverloads = (functionOverloads.Count > 1);
 
-                    string funcPtrType = f.type + "(" + (f.isStatic ? "" : ( className + "::")) + "*)(";
+                    string funcPtrType = functionReturnType + "(" + (f.isStatic ? "" : (className + "::")) + "*)(";
                     bool first = true;
                     string paramList = "";
                     string paramListForAngelscriptSignature = "";
@@ -310,10 +345,13 @@ namespace AngelscriptGenerator
                             paramListForAngelscriptSignature += ",";
                         }
                         paramList += p.type;
-                        paramListForAngelscriptSignature += p.type;
-                        if (p.type.EndsWith("&"))
+                        string paramTypeForAngelscript = ToAngelscriptKnownType(p.type);
+                        if (!knownSymbolNames.Contains(paramTypeForAngelscript))
+                            paramTypeForAngelscript = ToAngelscriptKnownType(ResolveTypedefs(p.type));
+                        paramListForAngelscriptSignature += paramTypeForAngelscript;
+                        if (paramTypeForAngelscript.EndsWith("&"))
                         {
-                            if ((p.type.Contains("const") || p.comment.Contains("[in]")))
+                            if ((paramTypeForAngelscript.Contains("const") || p.comment.Contains("[in]")))
                                 paramListForAngelscriptSignature += "in";
                             else if (p.comment.Contains("[out]"))
                                 paramListForAngelscriptSignature += "out";
@@ -324,14 +362,13 @@ namespace AngelscriptGenerator
                             }
                         }
 
-                        if (isGoodSymbol && !knownSymbolNames.Contains(p.BasicType()))
+                        if (isGoodSymbol && !knownSymbolNames.Contains(paramTypeForAngelscript))
                         {
                             isGoodSymbol = false;
-                            reason += "(" + p.BasicType() + " is not known to angelscript)";
+                            reason += "(" + p.type + " (==" + paramTypeForAngelscript + ") is not known to angelscript)";
                         }
                         first = false;
                     }
-                    paramListForAngelscriptSignature = paramListForAngelscriptSignature.Replace("std::string", "string");
                     funcPtrType += paramList + ")";
                     if (f.isConst)
                         funcPtrType += " const";
@@ -390,7 +427,8 @@ namespace AngelscriptGenerator
                             funcNameForAngelscript = funcNameForAngelscript.Replace("operator+", "opAdd").Replace("operator-", "opSub").Replace("operator*", "opMul").Replace("operator/", "opDiv")
                                 .Replace("operator+=", "opAddAssign").Replace("operator-=", "opSubAssign").Replace("operator*=", "opMulAssign").Replace("operator/=", "opDivAssign")
                                 .Replace("operator==", "opEquals");
-                            t += "r = engine->RegisterObjectMethod(\"" + className + "\", \"" + f.type.Replace("std::string", "string") + " " + funcNameForAngelscript + "(" + paramListForAngelscriptSignature + ")"
+
+                            t += "r = engine->RegisterObjectMethod(\"" + className + "\", \"" + ResolveTypedefs(f.type.Replace("std::string", "string")) + " " + funcNameForAngelscript + "(" + paramListForAngelscriptSignature + ")"
                                 + (f.isConst ? " const" : "") + "\", AS_METHOD_FUNCTION_PR(" + className + ", " + f.name + ", (" + paramList
                                 + ")" + (f.isConst ? " const" : "") + ", " + f.type + "), AS_MEMBER_CALL_CONVENTION); assert(r >= 0);\n";
                         }
