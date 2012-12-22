@@ -308,6 +308,8 @@ namespace AngelscriptGenerator
             if (m.Success)
                 return m.Groups[2].Value;
 
+            if (symbol.StartsWith("const ") && !(symbol.EndsWith("*") || symbol.EndsWith("&") || symbol.EndsWith("@")))
+                return symbol.Substring(6).Trim();
             return symbol;
         }
 
@@ -510,7 +512,11 @@ namespace AngelscriptGenerator
                     else
                     {
                         if (f.isStatic)
-                            t += "//.classmethod(";
+                        {
+                            t += "r = engine->RegisterGlobalFunction(\"" + functionReturnType + " " + className + "_" + f.name + "(" + paramListForAngelscriptSignature + ")"
+                                + "\", AS_FUNCTION_PR(" + className + "::" + f.name + ", (" + paramList
+                                + ")" + ", " + f.type + "), AS_CALL_CONVENTION); assert(r >= 0);\n";
+                        }
                         else
                         {
                             string funcNameForAngelscript = f.name;
@@ -532,12 +538,17 @@ namespace AngelscriptGenerator
                 {
                     if (!knownSymbolNames.Contains(f.type))
                         t += "// /* " + f.type + " is not known to angelscript. */ ";
-                    else if (f.IsArray())
+                    if (f.IsArray())
                         t += "// /* Exposing array types as fields are not supported by angelscript. */ ";
-                    else if (f.isStatic)
-                        t += "// /* Exposing static class variables not yet implemented (are they supported?) */ ";
-                    t += "\t";
-                    t += "r = engine->RegisterObjectProperty(\"" + f.parent.name + "\", \"" + f.type + " " + f.name + "\", asOFFSET(" + f.parent.name + ", " + f.name + ")); assert(r >= 0);\n";
+
+                    if (f.isStatic)
+                    {
+                        t += "\tr = engine->RegisterGlobalProperty(\"" + (f.IsConst() ? "const " : "") + f.type + " " + className + "_" + f.name + "\", (void*)&" + className + "::" + f.name + "); assert( r >= 0 );\n";
+                    }
+                    else
+                    {
+                        t += "\tr = engine->RegisterObjectProperty(\"" + f.parent.name + "\", \"" + f.type + " " + f.name + "\", asOFFSET(" + f.parent.name + ", " + f.name + ")); assert(r >= 0);\n";
+                    }
                 }
             }
             t += "\n\n\n";
