@@ -543,7 +543,12 @@ namespace AngelscriptGenerator
 
                     if (f.isStatic)
                     {
-                        t += "\tr = engine->RegisterGlobalProperty(\"" + (f.IsConst() ? "const " : "") + f.type + " " + className + "_" + f.name + "\", (void*)&" + className + "::" + f.name + "); assert( r >= 0 );\n";
+                        string reftype = "";
+                        Symbol vartype = cs.symbolsByName[f.type];
+                        if (vartype != null && IsReferenceType(vartype))
+                            reftype = "@";
+
+                        t += "\tr = engine->RegisterGlobalProperty(\"" + (f.IsConst() ? "const " : "") + f.type + " " + reftype + className + "_" + f.name + "\", (void*)&" + className + "::" + f.name + "); assert( r >= 0 );\n";
                     }
                     else
                     {
